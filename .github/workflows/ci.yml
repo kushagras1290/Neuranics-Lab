@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.12.3"
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Verify container dependency export
+        run: |
+          uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.lock
+          git diff --exit-code -- requirements.lock
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy src
+
+      - name: Test
+        run: uv run pytest
+
+      - name: Audit dependency graph
+        run: |
+          uv export --extra dev --no-emit-project --no-hashes --format requirements-txt > requirements-audit.txt
+          uv run pip-audit -r requirements-audit.txt
+
+      - name: Validate Compose
+        run: docker compose config --quiet
+
+      - name: Build container
+        run: docker build --tag morphx-simulator:ci .

@@ -1,0 +1,51 @@
+name: morphx-simulator
+
+services:
+  server:
+    image: morphx-simulator:local
+    build:
+      context: .
+    command: ["python", "-m", "morphx.server", "--db-path", "/data/server.db"]
+    environment:
+      MORPHX_API_KEY: "${MORPHX_API_KEY:-}"
+      MORPHX_LOG_LEVEL: "${MORPHX_LOG_LEVEL:-INFO}"
+    ports:
+      - "${MORPHX_HOST_PORT:-8000}:8000"
+    volumes:
+      - server-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2).read()
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  agent:
+    image: morphx-simulator:local
+    build:
+      context: .
+    command: ["python", "-m", "morphx.agent", "--db-path", "/data/agent.db"]
+    environment:
+      MORPHX_API_KEY: "${MORPHX_API_KEY:-}"
+      MORPHX_DEVICE_ID: "${MORPHX_DEVICE_ID:-MORPHX_SIM_001}"
+      MORPHX_INTERVAL_SECONDS: "${MORPHX_INTERVAL_SECONDS:-5}"
+      MORPHX_LOG_LEVEL: "${MORPHX_LOG_LEVEL:-INFO}"
+      MORPHX_SERVER_URL: "http://server:8000"
+    volumes:
+      - agent-data:/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  agent-data:
+  server-data:

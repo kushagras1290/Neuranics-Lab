@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling==1.32.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "morphx-simulator"
+version = "1.0.0"
+description = "Offline-first MorphX diagnostic device simulator and central ingestion API"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = { text = "Proprietary interview submission" }
+authors = [{ name = "Kushagra" }]
+dependencies = [
+  "fastapi==0.142.2",
+  "httpx==0.28.1",
+  "pydantic==2.13.5",
+  "uvicorn==0.54.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx2==2.13.1",
+  "mypy==2.4.0",
+  "pip-audit==2.10.1",
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "ruff==0.16.10",
+]
+
+[project.scripts]
+morphx-agent = "morphx.agent:main"
+morphx-server = "morphx.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/morphx"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers --cov=morphx --cov-report=term-missing --cov-fail-under=90"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["morphx"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+  "except KeyboardInterrupt:",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S105", "S106", "S311"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["morphx"]
+warn_unused_configs = true
