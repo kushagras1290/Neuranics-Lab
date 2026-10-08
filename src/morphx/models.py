@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-DeviceId = Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")]
-SampleId = Annotated[str, Field(min_length=1, max_length=96, pattern=r"^[A-Za-z0-9_-]+$")]
+DEVICE_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_-]{1,64}$"
+SAMPLE_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_-]{1,96}$"
+
+DeviceId = Annotated[str, Field(min_length=1, max_length=64, pattern=DEVICE_ID_PATTERN)]
+SampleId = Annotated[str, Field(min_length=1, max_length=96, pattern=SAMPLE_ID_PATTERN)]
 
 
 class WbcMeasurement(BaseModel):
@@ -70,6 +74,16 @@ class MeasurementEvent(BaseModel):
         return value.astimezone(UTC)
 
 
+def canonical_json(event: MeasurementEvent) -> str:
+    """Byte-stable serialization used for idempotency comparison on both sides."""
+    return json.dumps(
+        event.model_dump(mode="json"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+
+
 class StoredMeasurement(MeasurementEvent):
     """Server representation including receipt time."""
 
@@ -98,6 +112,19 @@ class MeasurementPage(BaseModel):
     device_id: DeviceId
     items: list[StoredMeasurement]
     next_after_sequence: int | None
+
+
+class DeviceSummary(BaseModel):
+    device_id: DeviceId
+    measurement_count: int
+    first_sequence: int
+    last_sequence: int
+    last_measured_at: datetime
+    last_received_at: datetime
+
+
+class DeviceList(BaseModel):
+    items: list[DeviceSummary]
 
 
 class HealthResponse(BaseModel):

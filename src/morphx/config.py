@@ -4,16 +4,25 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final
 from urllib.parse import urlparse
 
-DEVICE_ID_PATTERN: Final[str] = r"^[A-Za-z0-9_-]{1,64}$"
+from morphx.errors import ConfigurationError
+from morphx.models import DEVICE_ID_PATTERN
 
+__all__ = [
+    "AgentSettings",
+    "ConfigurationError",
+    "ServerSettings",
+    "parse_agent_args",
+    "parse_server_args",
+]
 
-class ConfigurationError(ValueError):
-    """Raised when runtime configuration is unsafe or invalid."""
+DEFAULT_SERVER_HOST: Final[str] = "127.0.0.1"
+LOG_LEVELS: Final[frozenset[str]] = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
 
 
 def _env(name: str, default: str) -> str:
@@ -44,9 +53,13 @@ def _int_env(name: str, default: int, *, minimum: int, maximum: int) -> int:
 
 def _log_level(value: str) -> str:
     normalized = value.upper()
-    if normalized not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+    if normalized not in LOG_LEVELS:
         raise ConfigurationError("MORPHX_LOG_LEVEL must be a standard Python log level")
     return normalized
+
+
+def _is_valid_device_id(value: str) -> bool:
+    return re.fullmatch(DEVICE_ID_PATTERN, value) is not None
 
 
 def _validate_server_url(value: str) -> str:
@@ -68,14 +81,17 @@ class ServerSettings:
     api_key: str | None
     log_level: str
 
+    @property
+    def is_loopback_only(self) -> bool:
+        return self.host in {"127.0.0.1", "::1", "localhost"}
+
     @classmethod
     def from_env(cls) -> ServerSettings:
-        api_key = _env("MORPHX_API_KEY", "") or None
         return cls(
             db_path=Path(_env("MORPHX_SERVER_DB_PATH", "./data/server.db")),
-            host=_env("MORPHX_SERVER_HOST", "0.0.0.0"),  # noqa: S104
+            host=_env("MORPHX_SERVER_HOST", DEFAULT_SERVER_HOST),
             port=_int_env("MORPHX_SERVER_PORT", 8000, minimum=1, maximum=65535),
-            api_key=api_key,
+            api_key=_env("MORPHX_API_KEY", "") or None,
             log_level=_log_level(_env("MORPHX_LOG_LEVEL", "INFO")),
         )
 
@@ -94,13 +110,12 @@ class AgentSettings:
     api_key: str | None
     log_level: str
     random_seed: int | None = None
+    shutdown_sync_seconds: float = 3.0
 
     @classmethod
     def from_env(cls) -> AgentSettings:
-        import re
-
         device_id = _env("MORPHX_DEVICE_ID", "MORPHX_SIM_001")
-        if re.fullmatch(DEVICE_ID_PATTERN, device_id) is None:
+        if not _is_valid_device_id(device_id):
             raise ConfigurationError(
                 "MORPHX_DEVICE_ID must contain only letters, numbers, underscores, or hyphens"
             )
@@ -115,7 +130,6 @@ class AgentSettings:
             seed = int(seed_raw) if seed_raw else None
         except ValueError as exc:
             raise ConfigurationError("MORPHX_RANDOM_SEED must be an integer") from exc
-        api_key = _env("MORPHX_API_KEY", "") or None
         return cls(
             device_id=device_id,
             db_path=Path(_env("MORPHX_AGENT_DB_PATH", "./data/agent.db")),
@@ -126,9 +140,10 @@ class AgentSettings:
             request_timeout_seconds=_float_env("MORPHX_REQUEST_TIMEOUT_SECONDS", 5.0),
             retry_base_seconds=retry_base,
             retry_max_seconds=retry_max,
-            api_key=api_key,
+            api_key=_env("MORPHX_API_KEY", "") or None,
             log_level=_log_level(_env("MORPHX_LOG_LEVEL", "INFO")),
             random_seed=seed,
+            shutdown_sync_seconds=_float_env("MORPHX_SHUTDOWN_SYNC_SECONDS", 3.0),
         )
 
 
@@ -159,15 +174,12 @@ def parse_agent_args(argv: list[str] | None = None) -> AgentSettings:
     args = parser.parse_args(argv)
     if args.interval is not None and args.interval <= 0:
         parser.error("--interval must be greater than zero")
-    candidate = replace(
+    if args.device_id is not None and not _is_valid_device_id(args.device_id):
+        parser.error("--device-id has an invalid format")
+    return replace(
         base,
         device_id=args.device_id or base.device_id,
         db_path=args.db_path or base.db_path,
         server_url=_validate_server_url(args.server_url) if args.server_url else base.server_url,
         interval_seconds=args.interval or base.interval_seconds,
     )
-    import re
-
-    if re.fullmatch(DEVICE_ID_PATTERN, candidate.device_id) is None:
-        parser.error("--device-id has an invalid format")
-    return candidate

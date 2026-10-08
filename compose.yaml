@@ -5,7 +5,7 @@ services:
     image: morphx-simulator:local
     build:
       context: .
-    command: ["python", "-m", "morphx.server", "--db-path", "/data/server.db"]
+    command: ["python", "-m", "morphx.server", "--db-path", "/data/server.db", "--host", "0.0.0.0"]
     environment:
       MORPHX_API_KEY: "${MORPHX_API_KEY:-}"
       MORPHX_LOG_LEVEL: "${MORPHX_LOG_LEVEL:-INFO}"

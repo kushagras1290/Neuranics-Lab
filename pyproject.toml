@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "morphx-simulator"
-version = "1.0.0"
+version = "1.1.0"
 description = "Offline-first MorphX diagnostic device simulator and central ingestion API"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
@@ -35,7 +35,7 @@ morphx-server = "morphx.server:main"
 packages = ["src/morphx"]
 
 [tool.pytest.ini_options]
-addopts = "-ra --strict-config --strict-markers --cov=morphx --cov-report=term-missing --cov-fail-under=90"
+addopts = "-ra --strict-config --strict-markers --cov=morphx --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
 
 [tool.coverage.run]

@@ -50,9 +50,11 @@ async def test_acquisition_continues_without_a_server(temp_db, fixed_time, monke
 @pytest.mark.anyio
 async def test_run_agent_coordinates_acquisition_and_sync(temp_db, fixed_time, monkeypatch) -> None:
     settings = agent_settings(temp_db)
+    stop = asyncio.Event()
 
     def handler(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
+        stop.set()  # stop once the server has seen a record, independent of machine speed
         return httpx.Response(
             201,
             json={
@@ -64,15 +66,7 @@ async def test_run_agent_coordinates_acquisition_and_sync(temp_db, fixed_time, m
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url=settings.server_url)
     monkeypatch.setattr(agent_module, "build_http_client", lambda _: client)
-    stop = asyncio.Event()
-
-    async def request_stop() -> None:
-        await asyncio.sleep(0.05)
-        stop.set()
-
-    stopper = asyncio.create_task(request_stop())
-    await agent_module.run_agent(settings, stop)
-    await stopper
+    await asyncio.wait_for(agent_module.run_agent(settings, stop), timeout=10)
 
     store = AgentStore(temp_db, settings.device_id)
     store.initialize()

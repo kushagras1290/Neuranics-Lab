@@ -22,4 +22,4 @@ USER morphx:morphx
 VOLUME ["/data"]
 EXPOSE 8000
 
-CMD ["python", "-m", "morphx.server", "--db-path", "/data/server.db"]
+CMD ["python", "-m", "morphx.server", "--db-path", "/data/server.db", "--host", "0.0.0.0"]
