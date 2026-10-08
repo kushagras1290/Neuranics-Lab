@@ -234,6 +234,8 @@ The test suite covers:
 
 ## Limitations and Unfinished Work
 
+**Time spent:** about 12 hours in total, more than the suggested 6 to 8 hours.
+
 These were left out deliberately to keep the submission focused on the offline-first guarantees the assignment asks for:
 
 - **No operator tooling for quarantined records.** They are visible in `agent.db` (`quarantined_at`, `last_error`) and in `ERROR` logs, but there is no command to inspect, re-queue, or discard them.
