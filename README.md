@@ -247,3 +247,6 @@ These were left out deliberately to keep the submission focused on the offline-f
 - **Retrieval is per device and sequence-ordered.** There is no cross-device query, and time filtering is a scan within the device's rows; an index on `(device_id, measured_at)` would be the next step for large volumes.
 
 All measurements are synthetic. This project is a software reliability exercise, not a medical device implementation and not evidence of clinical, regulatory, privacy, or diagnostic validation.
+
+
+
